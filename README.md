@@ -10,3 +10,5 @@ This works with Python 3.6 or greater, and uses :
 - `os` (to iterate all your map)
 - `shutil` (to copy the folders)
 - `time` (to know the time take by the program to end copying)
+
+To run it, simply execute `python "osu tranfer.py` in cmd, or execute `run.bat` on windows.
