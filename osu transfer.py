@@ -2,7 +2,7 @@ import os
 import shutil
 import time
 
-src_path = "C:/Users/nalo_/AppData/Local/osu!/Songs" # Change this to the SOURCE path of your beatmap folder
+src_path = "C:/Users/{user_name}/AppData/Local/osu!/Songs" # Change this to the SOURCE path of your beatmap folder
 dst_path = "F:/osu!/Songs_test" # Change this to the DESTINATION path of your beatmap folder
 mode_to_keep = 3 # Change this to copy only beatmapts of this mode (std = 0, taiko = 1, catch = 2, mania = 3)
 
