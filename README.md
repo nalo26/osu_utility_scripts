@@ -1,5 +1,5 @@
 # Specific gamemode copy
-If you want to copy all your osu beatmaps, but in only one gamemode
+If you want to copy all your osu beatmaps, but in one specific gamemode
 
 You'll need to change :
 - Line 9 `src_path`, to your `Songs` osu! folder (by default `C:/Users/{user_name}/AppData/Local/osu!/Songs`)
