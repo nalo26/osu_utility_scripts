@@ -36,4 +36,4 @@ for folder in os.listdir(src_path): # loop all mapsets
             if transfer: break
     except Exception: pass
 
-print(f"End, {countFolder} folders copied, {countError} error, took {round(time.time() - start_time, 5)} seconds")
+print(f"End, {countFolder} folders copied, {countError} error, took {round(time.time() - start_time, 2)} seconds")
