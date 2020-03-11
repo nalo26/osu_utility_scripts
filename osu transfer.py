@@ -13,25 +13,26 @@ countError = 0
 
 for folder in os.listdir(src_path): # loop all mapsets
     transfer = False
-    print(f"({countFolder}) Looking for \"{folder}\"")
-    for file in os.listdir(f"{src_path}/{folder}"): # loop all maps
-        if file.endswith(".osu"):
-            with open(f"{src_path}/{folder}/{file}", 'r', encoding="utf-8") as f:
-                for line in f: # loop all lines
-                    if line.startswith("Mode:"): 
-                        if str(mode_to_keep) in line:
-                            countFolder += 1
-                            print("Copying...", end="")
-                            try:
-                                shutil.copytree(f"{src_path}/{folder}", f"{dst_path}/{folder}") # mania mode
-                                print(".. Done")
-                            except Exception:
-                                print(".. Error!")
-                                countError += 1
-                                countFolder -= 1
-                            transfer = True
-                        break
-            f.close()
-        if transfer: break
+    if not(folder.endswith(".rar")):
+        print(f"({countFolder}) Looking for \"{folder}\"")
+        for file in os.listdir(f"{src_path}/{folder}"): # loop all maps
+            if file.endswith(".osu"):
+                with open(f"{src_path}/{folder}/{file}", 'r', encoding="utf-8") as f:
+                    for line in f: # loop all lines
+                        if line.startswith("Mode:"): 
+                            if str(mode_to_keep) in line:
+                                countFolder += 1
+                                print("Copying...", end="")
+                                try:
+                                    shutil.copytree(f"{src_path}/{folder}", f"{dst_path}/{folder}") # mania mode
+                                    print(".. Done")
+                                except Exception:
+                                    print(".. Error!")
+                                    countError += 1
+                                    countFolder -= 1
+                                transfer = True
+                            break
+                f.close()
+            if transfer: break
 
 print(f"End, {countFolder} folders copied, {countError} error, took {round(time.time() - start_time, 5)} seconds")
