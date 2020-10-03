@@ -1,20 +1,22 @@
 import os
 import shutil
-import time
+from tqdm import tqdm
 
-src_path = "C:/Users/{user_name}/AppData/Local/osu!/Songs" # Change this to the SOURCE path of your beatmap folder
-dst_path = "F:/osu!/Songs_test" # Change this to the DESTINATION path of your beatmap folder
+src_path = "C:/Users/{USER_NAME}/AppData/Local/osu!/Songs" # Change this to the SOURCE path of your beatmap folder
+dst_path = "F:/osu!/Songs" # Change this to the DESTINATION path of your beatmap folder
 mode_to_keep = 3 # Change this to copy only beatmapts of this mode (std = 0, taiko = 1, catch = 2, mania = 3)
 
-start_time = time.time()
 transfer = False
 countFolder = 0
 countError = 0
+countSkip = 0
 
-for folder in os.listdir(src_path): # loop all mapsets
+for folder in tqdm(os.listdir(src_path)): # loop all mapsets
     transfer = False
     try:
-        print(f"({countFolder}) Looking for \"{folder}\"")
+        if folder in os.listdir(dst_path): # map altready transfered, skip
+            countSkip += 1
+            continue
         for file in os.listdir(f"{src_path}/{folder}"): # loop all maps
             if file.endswith(".osu"):
                 with open(f"{src_path}/{folder}/{file}", 'r', encoding="utf-8") as f:
@@ -22,18 +24,12 @@ for folder in os.listdir(src_path): # loop all mapsets
                         if line.startswith("Mode:"): 
                             if str(mode_to_keep) in line:
                                 countFolder += 1
-                                print("Copying...", end="")
-                                try:
-                                    shutil.copytree(f"{src_path}/{folder}", f"{dst_path}/{folder}") # mania mode
-                                    print(".. Done")
-                                except Exception:
-                                    print(".. Error!")
-                                    countError += 1
-                                    countFolder -= 1
+                                try: shutil.copytree(f"{src_path}/{folder}", f"{dst_path}/{folder}") # copy folder
+                                except Exception: countError += 1
                                 transfer = True
                             break
                 f.close()
             if transfer: break
     except Exception: pass
 
-print(f"End, {countFolder} folders copied, {countError} error, took {round(time.time() - start_time, 2)} seconds")
+print(f"End, {countFolder} folders copied, {countError} error, {countSkip} skipped (already present)")
