@@ -45,14 +45,30 @@ def isMapFittingRequirements(beatmap):
         
     return dif_validity and (OSU_MODE == 3 and key_amount)
 
-def saveMap(map_id, author, name, data):
+
+def saveMap(session, map_id, author, name):
     forbiden_char = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
     author = formatString(author, forbiden_char, '_')
     name   = formatString(name,   forbiden_char, '_')
     file_path = f"{OSU_PATH}/{map_id} {author} - {name}.osz"
-    with open(file_path, "wb") as outfile:
-        outfile.write(data)
+    try:
+        link = f"https://osu.ppy.sh/beatmapsets/{map_id}"
+        headers = {"referer": link}
+        response = session.get(f"{link}/download?noVideo={str(int(DOWNLOAD_VIDEO))}", headers=headers, stream=True)
+        total = int(response.headers.get('content-length', 0))
         
+        with open(file_path, 'wb') as file, tqdm(
+            desc = str(map_id),
+            total = total,
+            unit = 'iB',
+            unit_scale = True,
+            unit_divisor = 1024,
+        ) as progress:
+            for data in response.iter_content(chunk_size = 1024):
+                size = file.write(data)
+                progress.update(size)
+    except Exception: return 1
+    return 0
         
 def get_token(session):
     homepage = session.get(OSU_URL)
@@ -83,7 +99,7 @@ def download(session):
     
     headers = {"referer": OSU_SEARCH_URL, "accept": "application/json"}
     maps = session.get(f"{OSU_SEARCH_URL}?m={OSU_MODE}&s={MAP_APPROVING}", headers=headers).json()['beatmapsets']
-    for beatmap in tqdm(maps):
+    for beatmap in maps:
         map_id = beatmap["id"]
         
         # mapset already downloaded
@@ -96,14 +112,7 @@ def download(session):
             continue 
         treated.append(map_id)
         
-        link = f"https://osu.ppy.sh/beatmapsets/{map_id}"
-        headers = {"referer": link}
-        response = session.get(f"{link}/download?noVideo={str(int(DOWNLOAD_VIDEO))}", headers=headers)
-        
-        if response.status_code == rq.codes.ok: saveMap(map_id, beatmap['artist'], beatmap['title'], response.content)
-        else:
-            failed += 1
-            continue
+        failed += saveMap(session, map_id, beatmap['artist'], beatmap['title'])
     
     print(f"Done, {len(maps) - (failed + skipped)} saved, {failed} failed, {skipped} skipped")
             
