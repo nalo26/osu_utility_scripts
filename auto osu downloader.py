@@ -1,127 +1,104 @@
 import os
-import sys
+
+import dotenv
 import requests as rq
-import re
 from tqdm import tqdm
 
+dotenv.load_dotenv()
 
-#-------------------------------------------------------------------------------------------------------------------------
-#######################################################  SETTINGS ########################################################
+OSU_MODE = int(os.getenv("OSU_MODE"))
+OSU_PATH = os.getenv("OSU_PATH")
+MAP_APPROVING = os.getenv("MAP_APPROVING")
+MIN_MAP_DIFFICULTY = float(os.getenv("MIN_MAP_DIFFICULTY"))
+MAX_MAP_DIFFICULTY = float(os.getenv("MAX_MAP_DIFFICULTY"))
+MAP_DIFFICULTY = (MIN_MAP_DIFFICULTY, 100 if MAX_MAP_DIFFICULTY == -1 else MAX_MAP_DIFFICULTY)
+MANIA_KEYS_AMOUT = int(os.getenv("MANIA_KEYS_AMOUT"))
+DOWNLOAD_VIDEO = bool(int(os.getenv("DOWNLOAD_VIDEO")))
 
-OSU_MODE = 3 # Change this to copy only beatmaps of this mode (std = 0, taiko = 1, catch = 2, mania = 3)
-OSU_PATH = "C:/Users/USERNAME/AppData/Local/osu!/Songs" # Set here your osu songs folder path
-MAP_APPROVING = "ranked" # any, ranked, qualified, loved, favourites, pending, graveyard
-MAP_DIFFICULTY = (3.4, None) # (Min, Max) stars difficulties at least one map should be between. Put None for unspecified
-MANIA_KEYS_AMOUT = 4 # Keys amount for mania maps
-DOWNLOAD_VIDEO = False # Change this to True or False if you want to download the video of the maps if any
-
-# Put here your osu creditentials, to be able to download the maps
-LOGIN = "USERNAME"
-PASSWORD = "PASSWORD"
-
-#-------------------------------------------------------------------------------------------------------------------------
-
-OSU_URL = "https://osu.ppy.sh/home"
-OSU_SESSION_URL = "https://osu.ppy.sh/session"
-OSU_SEARCH_URL = "https://osu.ppy.sh/beatmapsets/search"
+SEARCH_URL = "https://osu.ppy.sh/beatmapsets/search"
 MODES = ["osu", "taiko", "fruits", "mania"]
 
-def formatString(word, forbiden_list, char):
+
+def formatString(word: str, forbiden_list: list[str], char: str) -> str:
     for c in forbiden_list:
         word = word.replace(c, char)
     return word
 
-def isMapFittingRequirements(beatmap):
+
+def isMapFittingRequirements(beatmap) -> bool:
     dif_validity = False
     key_amount = False
     dif_min, dif_max = MAP_DIFFICULTY
-    if dif_min is None: dif_min = -1
-    if dif_max is None: dif_max = 100
     for m in beatmap:
-        if m['mode'] != MODES[OSU_MODE]: continue
-        if dif_min <= m['difficulty_rating'] <= dif_max: 
+        if m["mode"] != MODES[OSU_MODE]:
+            continue
+        if dif_min <= m["difficulty_rating"] <= dif_max:
             dif_validity = True
-            if OSU_MODE == 3 and m['cs'] == MANIA_KEYS_AMOUT: key_amount = True
-        
-    return dif_validity and (OSU_MODE == 3 and key_amount)
+            if OSU_MODE == 3 and m["cs"] == MANIA_KEYS_AMOUT:
+                key_amount = True
+
+    return dif_validity and ((OSU_MODE == 3 and key_amount) or OSU_MODE != 3)
 
 
-def saveMap(session, map_id, author, name):
-    forbiden_char = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
-    author = formatString(author, forbiden_char, '_')
-    name   = formatString(name,   forbiden_char, '_')
+def saveMap(session: rq.Session, map_id: int, author: str, name: str):
+    forbiden_char = ["<", ">", ":", '"', "/", "\\", "|", "?", "*"]
+    author = formatString(author, forbiden_char, "_")
+    name = formatString(name, forbiden_char, "_")
     file_path = f"{OSU_PATH}/{map_id} {author} - {name}.osz"
-    try:
-        link = f"https://osu.ppy.sh/beatmapsets/{map_id}"
-        headers = {"referer": link}
-        response = session.get(f"{link}/download?noVideo={str(int(DOWNLOAD_VIDEO))}", headers=headers, stream=True)
-        total = int(response.headers.get('content-length', 0))
-        
-        with open(file_path, 'wb') as file, tqdm(
-            desc = str(map_id),
-            total = total,
-            unit = 'iB',
-            unit_scale = True,
-            unit_divisor = 1024,
-        ) as progress:
-            for data in response.iter_content(chunk_size = 1024):
-                size = file.write(data)
-                progress.update(size)
-    except Exception: return 1
-    return 0
-        
-def get_token(session):
-    homepage = session.get(OSU_URL)
-    regex = re.compile(r".*?csrf-token.*?content=\"(.*?)\">", re.DOTALL)
-    match = regex.match(homepage.text)
-    csrf_token = match.group(1)
-    return csrf_token
+    link = f"https://osu.ppy.sh/beatmapsets/{map_id}"
+    headers = {"referer": link}
+    response = session.get(f"{link}/download?noVideo={str(int(not DOWNLOAD_VIDEO))}", headers=headers, stream=True)
+    total = int(response.headers.get("content-length", 0))
 
-def connect(session):
-    print("Login in...", end=" ")
-    data = {"username": LOGIN, "password": PASSWORD, "_token": get_token(session)}
-    headers = {"referer": OSU_URL}
-    res = session.post(OSU_SESSION_URL, data=data, headers=headers)
-    if res.status_code != rq.codes.ok:
-        print("✗ Login failed")
-        sys.exit(1)
-    print("✓ Login successful")
+    with open(file_path, "wb") as file, tqdm(
+        desc=str(map_id),
+        total=total,
+        unit="iB",
+        unit_scale=True,
+        unit_divisor=1024,
+    ) as progress:
+        for data in response.iter_content(chunk_size=1024):
+            size = file.write(data)
+            progress.update(size)
 
-def download(session):
+
+def connect(session: rq.Session):
+    print("Enter you osu_session cookie value:")
+    input_cookie = input("> ")
+    session.cookies.set("osu_session", input_cookie)
+
+
+def download_all(session: rq.Session):
     print("Downloading maps...")
     failed = 0
     skipped = 0
     treated = []
     possessed = []
     for f in os.listdir(OSU_PATH):
-        try: possessed.append(int(f.split(" ")[0]))
-        except ValueError: continue
-    
-    headers = {"referer": OSU_SEARCH_URL, "accept": "application/json"}
-    maps = session.get(f"{OSU_SEARCH_URL}?m={OSU_MODE}&s={MAP_APPROVING}", headers=headers).json()['beatmapsets']
+        try:
+            possessed.append(int(f.split(" ")[0]))
+        except ValueError:
+            continue
+
+    headers = {"referer": SEARCH_URL, "accept": "application/json"}
+    maps = session.get(f"{SEARCH_URL}?m={OSU_MODE}&s={MAP_APPROVING}", headers=headers).json()["beatmapsets"]
     for beatmap in maps:
         map_id = beatmap["id"]
-        
-        # mapset already downloaded
-        # or map already in folder
-        # or map don't fit the requirements
-        if map_id in treated or \
-           map_id in possessed or \
-           not isMapFittingRequirements(beatmap['beatmaps']):
+
+        # mapset already downloaded OR map already in folder OR map don't fit the requirements
+        if map_id in treated or map_id in possessed or not isMapFittingRequirements(beatmap["beatmaps"]):
             skipped += 1
-            continue 
+            continue
         treated.append(map_id)
-        
-        failed += saveMap(session, map_id, beatmap['artist'], beatmap['title'])
-    
+        try:
+            saveMap(session, map_id, beatmap["artist"], beatmap["title"])
+        except Exception:
+            failed += 1
+
     print(f"Done, {len(maps) - (failed + skipped)} saved, {failed} failed, {skipped} skipped")
-            
 
-def start():
-    session = rq.Session()
-    connect(session)
-    download(session)
 
-    
 if __name__ == "__main__":
-    start()
+    with rq.Session() as session:
+        connect(session)
+        download_all(session)
