@@ -1,4 +1,5 @@
 import os
+import pickle as pkl
 
 import dotenv
 import requests as rq
@@ -40,7 +41,7 @@ def isMapFittingRequirements(beatmap) -> bool:
     return dif_validity and ((OSU_MODE == 3 and key_amount) or OSU_MODE != 3)
 
 
-def saveMap(session: rq.Session, map_id: int, author: str, name: str):
+def download_map(session: rq.Session, map_id: int, author: str, name: str):
     forbiden_char = ["<", ">", ":", '"', "/", "\\", "|", "?", "*"]
     author = formatString(author, forbiden_char, "_")
     name = formatString(name, forbiden_char, "_")
@@ -62,10 +63,16 @@ def saveMap(session: rq.Session, map_id: int, author: str, name: str):
             progress.update(size)
 
 
-def connect(session: rq.Session):
+def create_session() -> rq.Session:
+    session = rq.Session()
     print("Enter you osu_session cookie value:")
     input_cookie = input("> ")
     session.cookies.set("osu_session", input_cookie)
+    return session
+
+
+def test_session(session: rq.Session) -> bool:
+    return session.get("https://osu.ppy.sh/beatmapsets/1/download").status_code == 200
 
 
 def download_all(session: rq.Session):
@@ -91,7 +98,7 @@ def download_all(session: rq.Session):
             continue
         treated.append(map_id)
         try:
-            saveMap(session, map_id, beatmap["artist"], beatmap["title"])
+            download_map(session, map_id, beatmap["artist"], beatmap["title"])
         except Exception:
             failed += 1
 
@@ -99,6 +106,17 @@ def download_all(session: rq.Session):
 
 
 if __name__ == "__main__":
-    with rq.Session() as session:
-        connect(session)
-        download_all(session)
+    session = None
+    if os.path.exists("session.pkl"):
+        print("Using saved session...", end=" ")
+        session = pkl.load(open("session.pkl", "rb"))
+        if not test_session(session):
+            session = None
+            print("✗ Failed")
+        else:
+            print("✓ Success")
+
+    if session is None:
+        session = create_session()
+    download_all(session)
+    pkl.dump(session, open("session.pkl", "wb"))
