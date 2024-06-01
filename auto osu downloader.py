@@ -65,7 +65,11 @@ def download_map(session: rq.Session, map_id: int, author: str, name: str):
 
 def create_session() -> rq.Session:
     session = rq.Session()
-    print("Enter you osu_session cookie value:")
+    print("Enter you osu_session cookie value.")
+    print(
+        "To get it, go to https://osu.ppy.sh, log in, press F12, go to 'Application' "
+        "tab, find the 'Cookies' and copy the value 'osu_session'."
+    )
     input_cookie = input("> ")
     session.cookies.set("osu_session", input_cookie)
     return session
