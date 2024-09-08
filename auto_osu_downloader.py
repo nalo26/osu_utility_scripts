@@ -76,7 +76,7 @@ def create_session() -> rq.Session:
 
 
 def test_session(session: rq.Session) -> bool:
-    return session.get("https://osu.ppy.sh/beatmapsets/1/download").status_code == 200
+    return session.get("https://osu.ppy.sh/beatmapsets/1/download", allow_redirects=False).status_code == 200
 
 
 def download_all(session: rq.Session):
